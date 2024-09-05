@@ -6,7 +6,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware to parse JSON body
 app.use(express.json());
 
-// POST endpoint for scraping the website and capturing a screenshot
+// POST endpoint for scraping the website and capturing the captcha screenshot
 app.post('/verify', async (req, res) => {
   const { BirthDate, UBRN } = req.body;
 
@@ -18,8 +18,8 @@ app.post('/verify', async (req, res) => {
   try {
     // Launch Puppeteer browser with --no-sandbox and new headless mode
     const browser = await puppeteer.launch({
-      headless: 'new',  // Opt into new headless mode
-      args: ['--no-sandbox', '--disable-setuid-sandbox']  // Required for running as root
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     const page = await browser.newPage();
 
@@ -30,15 +30,22 @@ app.post('/verify', async (req, res) => {
     await page.type('#BirthDate', BirthDate);  // Enter BirthDate
     await page.type('#ubrn', UBRN);            // Enter UBRN
 
-   
-    // Take a screenshot of the resulting page
-    const screenshot = await page.screenshot({ encoding: 'base64' });
+    // Wait for the Captcha image to be visible
+    await page.waitForSelector('#CaptchaImage');
+
+    // Select the element for the captcha image
+    const captchaElement = await page.$('#CaptchaImage');
+
+    // Take a screenshot of the captcha element only
+    const screenshot = await captchaElement.screenshot({ encoding: 'base64' });
 
     // Close the browser
     await browser.close();
 
-    // Send the screenshot as a response (Base64 encoded)
-    res.status(200).json({ screenshot });
+    // Send the screenshot with the appropriate MIME type (base64 with data URL format)
+    res.status(200).json({
+      image: `data:image/png;base64,${screenshot}`
+    });
   } catch (error) {
     console.error(error);
     res.status(500).send('Something went wrong while processing your request.');
