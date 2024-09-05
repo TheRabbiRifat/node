@@ -10,13 +10,28 @@ COPY package*.json ./
 # Install the app dependencies
 RUN npm install
 
+# Install Puppeteer dependencies
+RUN apt-get update && apt-get install -y \
+    wget \
+    gnupg \
+    ca-certificates \
+    libnss3 \
+    libx11-xcb1 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxi6 \
+    libxtst6 \
+    libgconf-2-4 \
+    libgbm-dev \
+    libgtk-3-0 \
+    libasound2  # This is the missing dependency
+
+# Install Puppeteer
+RUN npm install puppeteer
+
 # Copy the rest of the app code into the container
 COPY . .
-
-# Install Puppeteer and required libraries
-RUN apt-get update && apt-get install -y wget gnupg ca-certificates \
-  && apt-get install -y libnss3 libx11-xcb1 libxcomposite1 libxcursor1 libxdamage1 libxi6 libxtst6 libgconf-2-4 libgbm-dev libgtk-3-0 \
-  && npm install puppeteer
 
 # Expose port 3000 for the API
 EXPOSE 3000
