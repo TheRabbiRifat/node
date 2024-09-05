@@ -20,9 +20,9 @@ app.post('/submit', async (req, res) => {
     try {
         // Launch the browser
         const browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+            headless: 'new',
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
         const page = await browser.newPage();
 
         // Go to the target website
@@ -55,7 +55,7 @@ app.post('/submit', async (req, res) => {
         await page.type('#ubrn', UBRN);
         await page.type('#CaptchaInputText', CaptchaInputText);
 
-        // Submit the form
+        // Submit the form by pressing Enter
         await page.keyboard.press('Enter');
         await page.waitForNavigation();
 
@@ -63,12 +63,30 @@ app.post('/submit', async (req, res) => {
         const data = await page.evaluate(() => {
             const convertDateToDDMMYYYY = (dateStr) => {
                 const months = {
-                    'January': '01', 'February': '02', 'March': '03', 'April': '04',
-                    'May': '05', 'June': '06', 'July': '07', 'August': '08',
-                    'September': '09', 'October': '10', 'November': '11', 'December': '12'
+                    'january': '01',
+                    'february': '02',
+                    'march': '03',
+                    'april': '04',
+                    'may': '05',
+                    'june': '06',
+                    'july': '07',
+                    'august': '08',
+                    'september': '09',
+                    'october': '10',
+                    'november': '11',
+                    'december': '12'
                 };
-                const [day, month, year] = dateStr.split(' ');
-                return `${day.padStart(2, '0')}/${months[month]}/${year}`;
+
+                const cleanedDateStr = dateStr.replace(/\s+/g, ' ').trim().toLowerCase();
+                const [day, monthName, year] = cleanedDateStr.split(' ');
+                const month = months[monthName];
+
+                if (!month) {
+                    console.error('Month not found in mapping:', monthName);
+                    return `${day}/undefined/${year}`;
+                }
+
+                return `${day.padStart(2, '0')}/${month}/${year}`;
             };
 
             const getTextOrEmpty = (element) => {
@@ -76,10 +94,9 @@ app.post('/submit', async (req, res) => {
             };
 
             const data = {};
-
             const tables = document.querySelectorAll('table.table-hover');
+
             if (tables.length >= 2) {
-                // First table
                 const rows1 = tables[0].querySelectorAll('tr');
                 data['reg_date'] = convertDateToDDMMYYYY(getTextOrEmpty(rows1[2].cells[0]));
                 data['reg_office'] = getTextOrEmpty(rows1[2].cells[1]);
@@ -88,7 +105,6 @@ app.post('/submit', async (req, res) => {
                 data['birth_num'] = getTextOrEmpty(rows1[4].cells[1]);
                 data['sex'] = getTextOrEmpty(rows1[4].cells[2]);
 
-                // Second table
                 const rows2 = tables[1].querySelectorAll('tr');
                 data['name_bn'] = getTextOrEmpty(rows2[0].cells[1]);
                 data['name_en'] = getTextOrEmpty(rows2[0].cells[3]);
@@ -103,7 +119,6 @@ app.post('/submit', async (req, res) => {
                 data['father_nationality_bn'] = getTextOrEmpty(rows2[5].cells[1]);
                 data['father_nationality_en'] = getTextOrEmpty(rows2[5].cells[3]);
 
-                // Office address
                 const officeAddress = document.querySelector('span em').innerText.trim().toUpperCase();
                 data['office_address'] = officeAddress;
             }
@@ -135,4 +150,3 @@ app.post('/submit', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
-                  
