@@ -30,12 +30,7 @@ app.post('/verify', async (req, res) => {
     await page.type('#BirthDate', BirthDate);  // Enter BirthDate
     await page.type('#ubrn', UBRN);            // Enter UBRN
 
-    // Submit the form
-    await page.click('input[type="submit"]');  // Adjust the selector if necessary
-
-    // Wait for the page to load completely
-    await page.waitForNavigation({ waitUntil: 'networkidle2' });
-
+   
     // Take a screenshot of the resulting page
     const screenshot = await page.screenshot({ encoding: 'base64' });
 
