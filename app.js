@@ -6,7 +6,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware to parse JSON body
 app.use(express.json());
 
-// POST endpoint for scraping the website and capturing the captcha screenshot
+// POST endpoint for scraping the website, capturing the captcha image, hidden fields, and cookies
 app.post('/verify', async (req, res) => {
   const { BirthDate, UBRN } = req.body;
 
@@ -33,24 +33,34 @@ app.post('/verify', async (req, res) => {
     await page.keyboard.press('Enter');
 
     await page.type('#BirthDate', BirthDate);  // Enter BirthDate
-    
 
-    
     // Wait for the Captcha image to be visible
     await page.waitForSelector('#CaptchaImage');
 
-    // Select the element for the captcha image
+    // Select the captcha image element and take a screenshot
     const captchaElement = await page.$('#CaptchaImage');
-
-    // Take a screenshot of the captcha element only
     const screenshot = await captchaElement.screenshot({ encoding: 'base64' });
+
+    // Extract hidden input fields
+    const hiddenFields = await page.evaluate(() => {
+      const hiddenInputs = Array.from(document.querySelectorAll('input[type="hidden"]'));
+      return hiddenInputs.map(input => ({
+        name: input.name,
+        value: input.value
+      }));
+    });
+
+    // Get all cookies from the session
+    const cookies = await page.cookies();
 
     // Close the browser
     await browser.close();
 
-    // Send the screenshot with the appropriate MIME type (base64 with data URL format)
+    // Send the captcha image, hidden fields, and cookies as a JSON response
     res.status(200).json({
-      image: `data:image/png;base64,${screenshot}`
+      image: `data:image/png;base64,${screenshot}`,
+      hiddenFields,
+      cookies
     });
   } catch (error) {
     console.error(error);
