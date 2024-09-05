@@ -27,9 +27,15 @@ app.post('/verify', async (req, res) => {
     await page.goto('https://everify.bdris.gov.bd', { waitUntil: 'networkidle2' });
 
     // Fill the form
-    await page.type('#BirthDate', BirthDate);  // Enter BirthDate
     await page.type('#ubrn', UBRN);            // Enter UBRN
 
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Enter');
+
+    await page.type('#BirthDate', BirthDate);  // Enter BirthDate
+    
+
+    
     // Wait for the Captcha image to be visible
     await page.waitForSelector('#CaptchaImage');
 
