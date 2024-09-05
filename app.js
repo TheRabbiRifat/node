@@ -1,74 +1,138 @@
 const express = require('express');
 const puppeteer = require('puppeteer');
+const fs = require('fs');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware to parse JSON body
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));  // Increase limit for handling large payloads
 
-// POST endpoint for scraping the website, capturing the captcha image, hidden fields, and cookies
-app.post('/verify', async (req, res) => {
-  const { BirthDate, UBRN } = req.body;
+// POST endpoint for scraping the website, handling cookies, hidden values, and form submission
+app.post('/submit', async (req, res) => {
+    const { hiddenFields, cookies, BirthDate, UBRN, CaptchaInputText } = req.body;
 
-  // Validate input
-  if (!BirthDate || !UBRN || !/^\d{4}\-(0[1-9]|1[012])\-(0[1-9]|[12][0-9]|3[01])$/.test(BirthDate) || !/^\d{17}$/.test(UBRN)) {
-    return res.status(400).send('Invalid input format');
-  }
+    // Validate input
+    if (!hiddenFields || !cookies || !BirthDate || !UBRN || !CaptchaInputText) {
+        return res.status(400).send('Hidden fields, cookies, BirthDate, UBRN, and CaptchaInputText are required');
+    }
 
-  try {
-    // Launch Puppeteer browser with --no-sandbox and new headless mode
-    const browser = await puppeteer.launch({
+    try {
+        // Launch the browser
+        const browser = await puppeteer.launch({
       headless: 'new',
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
-    const page = await browser.newPage();
+        const page = await browser.newPage();
 
-    // Go to the website
-    await page.goto('https://everify.bdris.gov.bd', { waitUntil: 'networkidle2' });
+        // Go to the target website
+        await page.goto('https://everify.bdris.gov.bd', { waitUntil: 'networkidle2' });
 
-    // Fill the form
-    await page.type('#ubrn', UBRN);            // Enter UBRN
+        // Set cookies for the target page
+        await page.setCookie(...cookies);
 
-    await page.keyboard.press('Enter');
-    await page.keyboard.press('Enter');
+        // Wait for the form elements to load
+        await page.waitForSelector('#BirthDate');
+        await page.waitForSelector('#CaptchaInputText');
+        await page.waitForSelector('#ubrn');
 
-    await page.type('#BirthDate', BirthDate);  // Enter BirthDate
+        // Set hidden fields using the provided hiddenFields data
+        await page.evaluate((hiddenFields) => {
+            hiddenFields.forEach(field => {
+                const input = document.querySelector(`input[name="${field.name}"]`);
+                if (input) {
+                    input.value = field.value;
+                }
+            });
+        }, hiddenFields);
 
-    // Wait for the Captcha image to be visible
-    await page.waitForSelector('#CaptchaImage');
+        // Type the date of birth first and press Enter twice
+        await page.type('#BirthDate', BirthDate);
+        await page.keyboard.press('Enter');
+        await page.keyboard.press('Enter');
 
-    // Select the captcha image element and take a screenshot
-    const captchaElement = await page.$('#CaptchaImage');
-    const screenshot = await captchaElement.screenshot({ encoding: 'base64' });
+        // Fill in the other fields (UBRN and Captcha)
+        await page.type('#ubrn', UBRN);
+        await page.type('#CaptchaInputText', CaptchaInputText);
 
-    // Extract hidden input fields
-    const hiddenFields = await page.evaluate(() => {
-      const hiddenInputs = Array.from(document.querySelectorAll('input[type="hidden"]'));
-      return hiddenInputs.map(input => ({
-        name: input.name,
-        value: input.value
-      }));
-    });
+        // Submit the form
+        await page.keyboard.press('Enter');
+        await page.waitForNavigation();
 
-    // Get all cookies from the session
-    const cookies = await page.cookies();
+        // Scrape the data and convert it to JSON
+        const data = await page.evaluate(() => {
+            const convertDateToDDMMYYYY = (dateStr) => {
+                const months = {
+                    'January': '01', 'February': '02', 'March': '03', 'April': '04',
+                    'May': '05', 'June': '06', 'July': '07', 'August': '08',
+                    'September': '09', 'October': '10', 'November': '11', 'December': '12'
+                };
+                const [day, month, year] = dateStr.split(' ');
+                return `${day.padStart(2, '0')}/${months[month]}/${year}`;
+            };
 
-    // Close the browser
-    await browser.close();
+            const getTextOrEmpty = (element) => {
+                return element ? element.innerText.trim() : '';
+            };
 
-    // Send the captcha image, hidden fields, and cookies as a JSON response
-    res.status(200).json({
-      image: `data:image/png;base64,${screenshot}`,
-      hiddenFields,
-      cookies
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Something went wrong while processing your request.');
-  }
+            const data = {};
+
+            const tables = document.querySelectorAll('table.table-hover');
+            if (tables.length >= 2) {
+                // First table
+                const rows1 = tables[0].querySelectorAll('tr');
+                data['reg_date'] = convertDateToDDMMYYYY(getTextOrEmpty(rows1[2].cells[0]));
+                data['reg_office'] = getTextOrEmpty(rows1[2].cells[1]);
+                data['issue_date'] = convertDateToDDMMYYYY(getTextOrEmpty(rows1[2].cells[2]));
+                data['date_birth'] = convertDateToDDMMYYYY(getTextOrEmpty(rows1[4].cells[0]));
+                data['birth_num'] = getTextOrEmpty(rows1[4].cells[1]);
+                data['sex'] = getTextOrEmpty(rows1[4].cells[2]);
+
+                // Second table
+                const rows2 = tables[1].querySelectorAll('tr');
+                data['name_bn'] = getTextOrEmpty(rows2[0].cells[1]);
+                data['name_en'] = getTextOrEmpty(rows2[0].cells[3]);
+                data['birth_place_bn'] = getTextOrEmpty(rows2[1].cells[1]);
+                data['birth_place_en'] = getTextOrEmpty(rows2[1].cells[3]);
+                data['mother_name_bn'] = getTextOrEmpty(rows2[2].cells[1]);
+                data['mother_name_en'] = getTextOrEmpty(rows2[2].cells[3]);
+                data['mother_nationality_bn'] = getTextOrEmpty(rows2[3].cells[1]);
+                data['mother_nationality_en'] = getTextOrEmpty(rows2[3].cells[3]);
+                data['father_name_bn'] = getTextOrEmpty(rows2[4].cells[1]);
+                data['father_name_en'] = getTextOrEmpty(rows2[4].cells[3]);
+                data['father_nationality_bn'] = getTextOrEmpty(rows2[5].cells[1]);
+                data['father_nationality_en'] = getTextOrEmpty(rows2[5].cells[3]);
+
+                // Office address
+                const officeAddress = document.querySelector('span em').innerText.trim().toUpperCase();
+                data['office_address'] = officeAddress;
+            }
+
+            return data;
+        });
+
+        // Save the response data as a JSON file
+        fs.writeFileSync('response_data.json', JSON.stringify(data, null, 4));
+        console.log('Response data saved as response_data.json');
+
+        // Save the response page as a PDF
+        await page.pdf({ path: 'response_page.pdf', format: 'A4' });
+        console.log('Response page saved as response_page.pdf');
+
+        // Close the browser
+        await browser.close();
+
+        // Return the scraped data as the response
+        res.json({ status: 'success', data });
+
+    } catch (error) {
+        console.error('Error scraping:', error);
+        res.status(500).json({ status: 'error', message: 'Failed to scrape data.' });
+    }
 });
 
-// Start the server
+// Start the Express server
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
 });
+                  
