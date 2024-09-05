@@ -1,0 +1,15 @@
+{
+  "name": "nodejs-puppeteer-api",
+  "version": "1.0.0",
+  "description": "Node.js API to scrape website and take a screenshot using Puppeteer",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "puppeteer": "^19.0.0"
+  },
+  "author": "",
+  "license": "ISC"
+}
