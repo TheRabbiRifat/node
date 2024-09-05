@@ -8,11 +8,6 @@ const PORT = process.env.PORT || 3000;
 // Middleware to parse JSON body
 app.use(express.json({ limit: '50mb' }));  // Increase limit for handling large payloads
 
-// Function to convert text to title case
-const toTitleCase = (text) => {
-    return text.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-};
-
 // POST endpoint for scraping the website, handling cookies, hidden values, and form submission
 app.post('/submit', async (req, res) => {
     const { hiddenFields, cookies, BirthDate, UBRN, CaptchaInputText } = req.body;
@@ -104,28 +99,27 @@ app.post('/submit', async (req, res) => {
             if (tables.length >= 2) {
                 const rows1 = tables[0].querySelectorAll('tr');
                 data['reg_date'] = convertDateToDDMMYYYY(getTextOrEmpty(rows1[2].cells[0]));
-                data['reg_office'] = toTitleCase(getTextOrEmpty(rows1[2].cells[1]));
+                data['reg_office'] = getTextOrEmpty(rows1[2].cells[1]);
                 data['issue_date'] = convertDateToDDMMYYYY(getTextOrEmpty(rows1[2].cells[2]));
                 data['date_birth'] = convertDateToDDMMYYYY(getTextOrEmpty(rows1[4].cells[0]));
                 data['birth_num'] = getTextOrEmpty(rows1[4].cells[1]);
-                data['sex'] = toTitleCase(getTextOrEmpty(rows1[4].cells[2]));
+                data['sex'] = getTextOrEmpty(rows1[4].cells[2]);
 
                 const rows2 = tables[1].querySelectorAll('tr');
-                data['name_bn'] = toTitleCase(getTextOrEmpty(rows2[0].cells[1]));
-                data['name_en'] = toTitleCase(getTextOrEmpty(rows2[0].cells[3]));
-                data['birth_place_bn'] = toTitleCase(getTextOrEmpty(rows2[1].cells[1]));
-                data['birth_place_en'] = toTitleCase(getTextOrEmpty(rows2[1].cells[3]));
-                data['mother_name_bn'] = toTitleCase(getTextOrEmpty(rows2[2].cells[1]));
-                data['mother_name_en'] = toTitleCase(getTextOrEmpty(rows2[2].cells[3]));
-                data['mother_nationality_bn'] = toTitleCase(getTextOrEmpty(rows2[3].cells[1]));
-                data['mother_nationality_en'] = toTitleCase(getTextOrEmpty(rows2[3].cells[3]));
-                data['father_name_bn'] = toTitleCase(getTextOrEmpty(rows2[4].cells[1]));
-                data['father_name_en'] = toTitleCase(getTextOrEmpty(rows2[4].cells[3]));
-                data['father_nationality_bn'] = toTitleCase(getTextOrEmpty(rows2[5].cells[1]));
-                data['father_nationality_en'] = toTitleCase(getTextOrEmpty(rows2[5].cells[3]));
+                data['name_bn'] = getTextOrEmpty(rows2[0].cells[1]);
+                data['name_en'] = getTextOrEmpty(rows2[0].cells[3]);
+                data['birth_place_bn'] = getTextOrEmpty(rows2[1].cells[1]);
+                data['birth_place_en'] = getTextOrEmpty(rows2[1].cells[3]);
+                data['mother_name_bn'] = getTextOrEmpty(rows2[2].cells[1]);
+                data['mother_name_en'] = getTextOrEmpty(rows2[2].cells[3]);
+                data['mother_nationality_bn'] = getTextOrEmpty(rows2[3].cells[1]);
+                data['mother_nationality_en'] = getTextOrEmpty(rows2[3].cells[3]);
+                data['father_name_bn'] = getTextOrEmpty(rows2[4].cells[1]);
+                data['father_name_en'] = getTextOrEmpty(rows2[4].cells[3]);
+                data['father_nationality_bn'] = getTextOrEmpty(rows2[5].cells[1]);
+                data['father_nationality_en'] = getTextOrEmpty(rows2[5].cells[3]);
 
-                // Office address
-                const officeAddress = toTitleCase(document.querySelector('span em').innerText.trim());
+                const officeAddress = document.querySelector('span em').innerText.trim().toUpperCase();
                 data['office_address'] = officeAddress;
             }
 
