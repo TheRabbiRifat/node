@@ -1,7 +1,7 @@
 const express = require('express');
 const puppeteer = require('puppeteer');
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Middleware to parse JSON body
 app.use(express.json());
@@ -16,8 +16,11 @@ app.post('/verify', async (req, res) => {
   }
 
   try {
-    // Launch Puppeteer browser
-    const browser = await puppeteer.launch({ headless: true });
+    // Launch Puppeteer browser with --no-sandbox and new headless mode
+    const browser = await puppeteer.launch({
+      headless: 'new',  // Opt into new headless mode
+      args: ['--no-sandbox', '--disable-setuid-sandbox']  // Required for running as root
+    });
     const page = await browser.newPage();
 
     // Go to the website
@@ -28,6 +31,10 @@ app.post('/verify', async (req, res) => {
     await page.type('#ubrn', UBRN);            // Enter UBRN
 
     // Submit the form
+    await page.click('input[type="submit"]');  // Adjust the selector if necessary
+
+    // Wait for the page to load completely
+    await page.waitForNavigation({ waitUntil: 'networkidle2' });
 
     // Take a screenshot of the resulting page
     const screenshot = await page.screenshot({ encoding: 'base64' });
