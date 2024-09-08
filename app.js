@@ -3,6 +3,15 @@ const puppeteer = require('puppeteer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.get('/check-json', (req, res) => {
+    res.json({
+        status: "success",
+        message: "NodeJS get captcha app is running!"
+    });
+});
+
+
+
 // Middleware to parse JSON body
 app.use(express.json());
 
