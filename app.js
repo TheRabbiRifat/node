@@ -5,6 +5,13 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.get('/check-json', (req, res) => {
+    res.json({
+        status: "success",
+        message: "NodeJS get info app is running!"
+    });
+});
+
 // Middleware to parse JSON body
 app.use(express.json({ limit: '50mb' }));  // Increase limit for handling large payloads
 
