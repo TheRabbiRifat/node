@@ -12,38 +12,30 @@ app.get('/check-json', (req, res) => {
     });
 });
 
-// Middleware to parse JSON body
 app.use(express.json({ limit: '50mb' }));  // Increase limit for handling large payloads
 
-// POST endpoint for scraping the website, handling cookies, hidden values, and form submission
 app.post('/submit', async (req, res) => {
     const { hiddenFields, cookies, BirthDate, UBRN, CaptchaInputText } = req.body;
 
-    // Validate input
     if (!hiddenFields || !cookies || !BirthDate || !UBRN || !CaptchaInputText) {
         return res.status(400).send('Hidden fields, cookies, BirthDate, UBRN, and CaptchaInputText are required');
     }
 
     try {
-        // Launch the browser
         const browser = await puppeteer.launch({
             headless: 'new',
             args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
         const page = await browser.newPage();
 
-        // Go to the target website
         await page.goto('https://everify.bdris.gov.bd', { waitUntil: 'networkidle2' });
 
-        // Set cookies for the target page
         await page.setCookie(...cookies);
 
-        // Wait for the form elements to load
         await page.waitForSelector('#BirthDate');
         await page.waitForSelector('#CaptchaInputText');
         await page.waitForSelector('#ubrn');
 
-        // Set hidden fields using the provided hiddenFields data
         await page.evaluate((hiddenFields) => {
             hiddenFields.forEach(field => {
                 const input = document.querySelector(`input[name="${field.name}"]`);
@@ -53,22 +45,17 @@ app.post('/submit', async (req, res) => {
             });
         }, hiddenFields);
 
-        // Type the date of birth first and press Enter twice
         await page.type('#BirthDate', BirthDate);
         await page.keyboard.press('Enter');
         await page.keyboard.press('Enter');
 
-        // Fill in the other fields (UBRN and Captcha)
         await page.type('#ubrn', UBRN);
         await page.type('#CaptchaInputText', CaptchaInputText);
 
-        // Submit the form by pressing Enter
         await page.keyboard.press('Enter');
         await page.waitForNavigation();
 
-        // Scrape the data and convert it to JSON
         const data = await page.evaluate(() => {
-            // Define toTitleCase function inside page.evaluate
             const toTitleCase = (text) => {
                 return text.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
             };
@@ -131,37 +118,34 @@ app.post('/submit', async (req, res) => {
                 data['father_nationality_bn'] = toTitleCase(getTextOrEmpty(rows2[5].cells[1]));
                 data['father_nationality_en'] = toTitleCase(getTextOrEmpty(rows2[5].cells[3]));
 
-                // Office address
                 const officeAddress = toTitleCase(document.querySelector('span em').innerText.trim());
                 data['office_address'] = officeAddress;
             }
 
             // Ensure ', বাংলাদেশ' is only added once for Bangla
-if (!data['birth_place_bn'].includes(', বাংলাদেশ')) {
-    data['birth_place_bn'] += ', বাংলাদেশ';
-}
+            if (!data['birth_place_bn'].includes(', বাংলাদেশ')) {
+                data['birth_place_bn'] += ', বাংলাদেশ';
+            }
 
-// Ensure ', Bangladesh' is only added once for English
-if (!data['birth_place_en'].includes(', Bangladesh')) {
-    data['birth_place_en'] += ', Bangladesh';
-}
-
+            // Ensure ', Bangladesh' is only added once for English
+            if (!data['birth_place_en'].includes(', Bangladesh')) {
+                data['birth_place_en'] += ', Bangladesh';
+            }
 
             return data;
         });
 
-        // Save the response data as a JSON file
+        // Save data to JSON file
         fs.writeFileSync('response_data.json', JSON.stringify(data, null, 4));
         console.log('Response data saved as response_data.json');
 
-        // Save the response page as a PDF
+        // Save PDF of response page
         await page.pdf({ path: 'response_page.pdf', format: 'A4' });
         console.log('Response page saved as response_page.pdf');
 
-        // Close the browser
+        // Close browser
         await browser.close();
 
-        // Return the scraped data as the response
         res.json({ status: 'success', data });
 
     } catch (error) {
@@ -170,7 +154,6 @@ if (!data['birth_place_en'].includes(', Bangladesh')) {
     }
 });
 
-// Start the Express server
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
