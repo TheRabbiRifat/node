@@ -136,15 +136,16 @@ app.post('/submit', async (req, res) => {
                 data['office_address'] = officeAddress;
             }
 
-            // Ensure 'বাংলাদেশ' is only added once for Bangla
-            if (!data['birth_place_bn'].includes('বাংলাদেশ')) {
-                data['birth_place_bn'] += ' বাংলাদেশ';
-            }
+            // Ensure ', বাংলাদেশ' is only added once for Bangla
+if (!data['birth_place_bn'].includes(', বাংলাদেশ')) {
+    data['birth_place_bn'] += ', বাংলাদেশ';
+}
 
-            // Ensure 'Bangladesh' is only added once for English
-            if (!data['birth_place_en'].includes('Bangladesh')) {
-                data['birth_place_en'] += ' Bangladesh';
-            }
+// Ensure ', Bangladesh' is only added once for English
+if (!data['birth_place_en'].includes(', Bangladesh')) {
+    data['birth_place_en'] += ', Bangladesh';
+}
+
 
             return data;
         });
