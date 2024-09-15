@@ -29,9 +29,10 @@ app.post('/submit', async (req, res) => {
     try {
         // Launch Puppeteer browser
         const browser = await puppeteer.launch({
-            headless: new, // Set to 'true' for running in the background
-            args: ['--no-sandbox', '--disable-setuid-sandbox'] // Required for certain hosting platforms
-        });
+    headless: 'new', // Opt into the new headless mode for Chrome
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+});
+
 
         const page = await browser.newPage();
 
